@@ -19,10 +19,10 @@ const MAX_SPEED = 2.6
 const MOUSE_RADIUS = 230
 // Particles are pulled toward a ring of this radius around the cursor.
 const RING_RADIUS = 82
-// Strength of the radial pull toward the ring.
-const RADIAL_K = 0.045
+// Strength of the pull toward each particle's slot on the ring.
+const RADIAL_K = 0.03
 // Strength of the tangential swirl around the cursor.
-const SWIRL = 1.05
+const SWIRL = 0.95
 
 /**
  * Lightweight 3D value-noise (x, y plus an animated z/time axis).
@@ -98,6 +98,8 @@ interface Particle {
   vx: number
   vy: number
   alpha: number
+  // Stable fallback angle so a particle never collapses into the exact center.
+  seed: number
 }
 
 function HeroCanvas({ style, className }: HeroCanvasProps) {
@@ -131,6 +133,7 @@ function HeroCanvas({ style, className }: HeroCanvasProps) {
       p.vx = 0
       p.vy = 0
       p.alpha = 0.12 + Math.random() * 0.22
+      p.seed = Math.random() * Math.PI * 2
     }
 
     const initParticles = () => {
@@ -138,7 +141,7 @@ function HeroCanvas({ style, className }: HeroCanvasProps) {
       const count = Math.floor(Math.min(1800, area / 900))
       particles = new Array(count)
       for (let i = 0; i < count; i++) {
-        const p: Particle = { x: 0, y: 0, vx: 0, vy: 0, alpha: 0 }
+        const p: Particle = { x: 0, y: 0, vx: 0, vy: 0, alpha: 0, seed: 0 }
         spawn(p)
         particles[i] = p
       }
@@ -155,18 +158,22 @@ function HeroCanvas({ style, className }: HeroCanvasProps) {
       if (mouseStrength > 0.001) {
         const dx = p.x - mouse.x
         const dy = p.y - mouse.y
-        const dist = Math.hypot(dx, dy) || 0.0001
+        const dist = Math.hypot(dx, dy)
         if (dist < MOUSE_RADIUS) {
-          const nx = dx / dist
-          const ny = dy / dist
           const falloff = 1 - dist / MOUSE_RADIUS
-          // Pull toward a ring of radius RING_RADIUS around the cursor.
-          const diff = dist - RING_RADIUS
-          p.vx += -nx * diff * RADIAL_K * mouseStrength
-          p.vy += -ny * diff * RADIAL_K * mouseStrength
-          // Tangential swirl so the shape orbits the cursor.
-          p.vx += -ny * SWIRL * falloff * mouseStrength
-          p.vy += nx * SWIRL * falloff * mouseStrength
+          // Angle of this particle around the cursor. Near the center the
+          // angle is undefined, so fall back to the particle's stable slot —
+          // this is what prevents everything collapsing into one pixel.
+          const angle = dist > 1 ? Math.atan2(dy, dx) : p.seed
+          // Steer toward this particle's point on the ring (keeps a ring,
+          // never a point).
+          const targetX = mouse.x + Math.cos(angle) * RING_RADIUS
+          const targetY = mouse.y + Math.sin(angle) * RING_RADIUS
+          p.vx += (targetX - p.x) * RADIAL_K * mouseStrength
+          p.vy += (targetY - p.y) * RADIAL_K * mouseStrength
+          // Tangential swirl so the ring orbits the cursor.
+          p.vx += -Math.sin(angle) * SWIRL * falloff * mouseStrength
+          p.vy += Math.cos(angle) * SWIRL * falloff * mouseStrength
           near = falloff * mouseStrength
         }
       }
