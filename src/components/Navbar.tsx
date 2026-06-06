@@ -58,8 +58,6 @@ export function Navbar() {
             asChild
             size="sm"
             px="6"
-            py="5"
-            h="auto"
             bg="ink.50"
             color="ink.950"
             fontWeight="600"
