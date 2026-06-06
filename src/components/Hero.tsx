@@ -10,7 +10,8 @@ export function Hero() {
       position="relative"
       minH="100vh"
       display="flex"
-      alignItems="center"
+      alignItems={{ base: "flex-start", md: "center" }}
+      pt={{ base: "104px", md: "0" }}
       overflow="hidden"
     >
       {/* Flow-field animation backdrop */}
