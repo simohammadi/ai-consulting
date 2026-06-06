@@ -59,7 +59,7 @@ export function Hero() {
                 as="span"
                 fontSize={{ base: "5xl", md: "7xl", lg: "8xl" }}
                 fontWeight="700"
-                lineHeight="1.0"
+                lineHeight="1.05"
                 letterSpacing="-0.03em"
                 color={i === hero.titleLines.length - 1 ? "ink.400" : "ink.50"}
               >

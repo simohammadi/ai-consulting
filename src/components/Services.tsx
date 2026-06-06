@@ -20,6 +20,7 @@ export function Services() {
             as="h2"
             fontSize={{ base: "3xl", md: "5xl" }}
             fontWeight="700"
+            lineHeight="1.15"
             letterSpacing="-0.02em"
             color="ink.50"
           >
