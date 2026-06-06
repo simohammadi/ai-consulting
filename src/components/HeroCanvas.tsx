@@ -23,6 +23,12 @@ const RING_RADIUS = 82
 const RADIAL_K = 0.03
 // Strength of the tangential swirl around the cursor.
 const SWIRL = 0.95
+// Particles within this distance of each other push apart (anti-clumping).
+const SEPARATION_RADIUS = 24
+// Strength of the inter-particle repulsion.
+const SEPARATION_K = 0.55
+// Per-frame random jitter (Brownian motion) for entropy.
+const BROWNIAN = 0.42
 
 /**
  * Lightweight 3D value-noise (x, y plus an animated z/time axis).
@@ -127,6 +133,16 @@ function HeroCanvas({ style, className }: HeroCanvasProps) {
     const mouse = { x: 0, y: 0, lastMove: -Infinity }
     let strength = 0
 
+    // Spatial hash grid (linked lists) for fast neighbour repulsion.
+    const CELL = Math.max(1, SEPARATION_RADIUS)
+    let gridCols = 0
+    let gridRows = 0
+    let heads = new Int32Array(0)
+    let nextIdx = new Int32Array(0)
+    // Cursor proximity per particle, written during the force pass and read
+    // during the draw pass.
+    let nearArr = new Float32Array(0)
+
     const spawn = (p: Particle) => {
       p.x = Math.random() * width
       p.y = Math.random() * height
@@ -145,14 +161,84 @@ function HeroCanvas({ style, className }: HeroCanvasProps) {
         spawn(p)
         particles[i] = p
       }
+      nextIdx = new Int32Array(count)
+      nearArr = new Float32Array(count)
     }
 
-    const stepParticle = (p: Particle, mouseStrength: number) => {
+    // Bucket every particle into the spatial grid (rebuilt each frame).
+    const buildGrid = () => {
+      heads.fill(-1)
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i]
+        let cx = Math.floor(p.x / CELL)
+        let cy = Math.floor(p.y / CELL)
+        if (cx < 0) cx = 0
+        else if (cx >= gridCols) cx = gridCols - 1
+        if (cy < 0) cy = 0
+        else if (cy >= gridRows) cy = gridRows - 1
+        const c = cy * gridCols + cx
+        nextIdx[i] = heads[c]
+        heads[c] = i
+      }
+    }
+
+    // Accumulate the repulsion force on particle i from nearby particles.
+    const separation = (i: number) => {
+      const p = particles[i]
+      let cx = Math.floor(p.x / CELL)
+      let cy = Math.floor(p.y / CELL)
+      if (cx < 0) cx = 0
+      else if (cx >= gridCols) cx = gridCols - 1
+      if (cy < 0) cy = 0
+      else if (cy >= gridRows) cy = gridRows - 1
+
+      let sx = 0
+      let sy = 0
+      const r2 = SEPARATION_RADIUS * SEPARATION_RADIUS
+      for (let gy = cy - 1; gy <= cy + 1; gy++) {
+        if (gy < 0 || gy >= gridRows) continue
+        for (let gx = cx - 1; gx <= cx + 1; gx++) {
+          if (gx < 0 || gx >= gridCols) continue
+          let j = heads[gy * gridCols + gx]
+          while (j !== -1) {
+            if (j !== i) {
+              const q = particles[j]
+              const ddx = p.x - q.x
+              const ddy = p.y - q.y
+              const d2 = ddx * ddx + ddy * ddy
+              if (d2 > 0 && d2 < r2) {
+                const d = Math.sqrt(d2)
+                const f = (1 - d / SEPARATION_RADIUS) / d
+                sx += ddx * f
+                sy += ddy * f
+              }
+            }
+            j = nextIdx[j]
+          }
+        }
+      }
+      p.vx += sx * SEPARATION_K
+      p.vy += sy * SEPARATION_K
+    }
+
+    // Pass 1: compute all velocities from frame-start positions (no movement
+    // yet, so neighbour reads stay consistent).
+    const computeForces = (i: number, mouseStrength: number) => {
+      const p = particles[i]
+
       // Base "dance": accelerate along the evolving flow field.
-      const angle =
+      const flowAngle =
         noise.noise(p.x * NOISE_SCALE, p.y * NOISE_SCALE, time) * Math.PI * 4
-      p.vx += Math.cos(angle) * FLOW_ACCEL
-      p.vy += Math.sin(angle) * FLOW_ACCEL
+      p.vx += Math.cos(flowAngle) * FLOW_ACCEL
+      p.vy += Math.sin(flowAngle) * FLOW_ACCEL
+
+      // Brownian jitter — keeps the system noisy so it never reads as a clean
+      // geometric circle.
+      p.vx += (Math.random() - 0.5) * BROWNIAN
+      p.vy += (Math.random() - 0.5) * BROWNIAN
+
+      // Anti-clumping repulsion from neighbours.
+      separation(i)
 
       let near = 0
       if (mouseStrength > 0.001) {
@@ -161,22 +247,19 @@ function HeroCanvas({ style, className }: HeroCanvasProps) {
         const dist = Math.hypot(dx, dy)
         if (dist < MOUSE_RADIUS) {
           const falloff = 1 - dist / MOUSE_RADIUS
-          // Angle of this particle around the cursor. Near the center the
-          // angle is undefined, so fall back to the particle's stable slot —
-          // this is what prevents everything collapsing into one pixel.
+          // Near the exact centre the angle is undefined, so fall back to the
+          // particle's stable slot — prevents collapse into one pixel.
           const angle = dist > 1 ? Math.atan2(dy, dx) : p.seed
-          // Steer toward this particle's point on the ring (keeps a ring,
-          // never a point).
           const targetX = mouse.x + Math.cos(angle) * RING_RADIUS
           const targetY = mouse.y + Math.sin(angle) * RING_RADIUS
           p.vx += (targetX - p.x) * RADIAL_K * mouseStrength
           p.vy += (targetY - p.y) * RADIAL_K * mouseStrength
-          // Tangential swirl so the ring orbits the cursor.
           p.vx += -Math.sin(angle) * SWIRL * falloff * mouseStrength
           p.vy += Math.cos(angle) * SWIRL * falloff * mouseStrength
           near = falloff * mouseStrength
         }
       }
+      nearArr[i] = near
 
       p.vx *= DAMPING
       p.vy *= DAMPING
@@ -186,16 +269,20 @@ function HeroCanvas({ style, className }: HeroCanvasProps) {
         p.vx = (p.vx / sp) * MAX_SPEED
         p.vy = (p.vy / sp) * MAX_SPEED
       }
+    }
 
+    // Pass 2: move and draw.
+    const moveAndDraw = (i: number) => {
+      const p = particles[i]
       p.x += p.vx
       p.y += p.vy
 
-      // Wrap around edges so the field never empties out.
       if (p.x < 0) p.x += width
       else if (p.x >= width) p.x -= width
       if (p.y < 0) p.y += height
       else if (p.y >= height) p.y -= height
 
+      const near = nearArr[i]
       const a = Math.min(0.95, p.alpha + near * 0.75)
       const size = 1.4 + near * 2.2
       ctx.fillStyle = `rgba(232,232,235,${a})`
@@ -211,9 +298,9 @@ function HeroCanvas({ style, className }: HeroCanvasProps) {
       const target = idle < 1500 ? 1 : 0
       strength += (target - strength) * 0.05
 
-      for (let i = 0; i < particles.length; i++) {
-        stepParticle(particles[i], strength)
-      }
+      buildGrid()
+      for (let i = 0; i < particles.length; i++) computeForces(i, strength)
+      for (let i = 0; i < particles.length; i++) moveAndDraw(i)
       time += NOISE_TIME_STEP
     }
 
@@ -245,6 +332,11 @@ function HeroCanvas({ style, className }: HeroCanvasProps) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.fillStyle = BG_COLOR
       ctx.fillRect(0, 0, width, height)
+
+      gridCols = Math.max(1, Math.ceil(width / CELL))
+      gridRows = Math.max(1, Math.ceil(height / CELL))
+      heads = new Int32Array(gridCols * gridRows)
+
       initParticles()
 
       if (prefersReducedMotion) {
