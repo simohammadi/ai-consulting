@@ -5,8 +5,8 @@ import { Section } from "@/components/Section"
 export function Process() {
   return (
     <Section id="process">
-      <Stack gap={{ base: 10, md: 16 }}>
-        <Stack gap="4" maxW="2xl">
+      <Stack gap={{ base: 10, md: 16 }} align="center">
+        <Stack gap="4" maxW="2xl" align="center" textAlign="center">
           <Text
             fontSize="sm"
             fontWeight="600"

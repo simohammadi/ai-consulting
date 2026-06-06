@@ -118,6 +118,10 @@ export function Contact() {
                   onChange={set("name")}
                   placeholder="Jane Doe"
                   variant="subtle"
+                  size="lg"
+                  px="4"
+                  h="12"
+                  rounded="xl"
                   bg="bg.panel"
                   borderColor="border"
                   _placeholder={{ color: "ink.500" }}
@@ -133,6 +137,10 @@ export function Contact() {
                   onChange={set("email")}
                   placeholder="jane@company.com"
                   variant="subtle"
+                  size="lg"
+                  px="4"
+                  h="12"
+                  rounded="xl"
                   bg="bg.panel"
                   borderColor="border"
                   _placeholder={{ color: "ink.500" }}
@@ -153,6 +161,10 @@ export function Contact() {
                 onChange={set("company")}
                 placeholder="Acme Inc."
                 variant="subtle"
+                size="lg"
+                px="4"
+                h="12"
+                rounded="xl"
                 bg="bg.panel"
                 borderColor="border"
                 _placeholder={{ color: "ink.500" }}
@@ -167,6 +179,8 @@ export function Contact() {
                 placeholder="A few lines on your goal, timeline, and stack…"
                 rows={4}
                 variant="subtle"
+                p="4"
+                rounded="xl"
                 bg="bg.panel"
                 borderColor="border"
                 _placeholder={{ color: "ink.500" }}
@@ -193,6 +207,10 @@ export function Contact() {
               loading={submitting}
               loadingText="Sending…"
               size="lg"
+              px="10"
+              py="7"
+              h="auto"
+              fontSize="md"
               bg="ink.50"
               color="ink.950"
               fontWeight="600"
