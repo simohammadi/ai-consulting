@@ -4,7 +4,7 @@ import { brand, nav } from "@/content/site"
 export function Footer() {
   return (
     <Box as="footer" borderTop="1px solid" borderColor="border" py="12">
-      <Container maxW="6xl" px={{ base: 5, md: 8 }}>
+      <Container maxW="6xl" mx="auto" px={{ base: 5, md: 8 }}>
         <Flex
           direction={{ base: "column", md: "row" }}
           justify="space-between"

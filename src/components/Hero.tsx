@@ -30,6 +30,7 @@ export function Hero() {
 
       <Container
         maxW="6xl"
+        mx="auto"
         px={{ base: 5, md: 8 }}
         position="relative"
         zIndex="2"

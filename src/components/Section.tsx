@@ -16,7 +16,7 @@ export function Section({ id, children, maxW = "6xl" }: SectionProps) {
       py={{ base: 16, md: 28 }}
       position="relative"
     >
-      <Container maxW={maxW} px={{ base: 5, md: 8 }}>
+      <Container maxW={maxW} mx="auto" px={{ base: 5, md: 8 }}>
         {children}
       </Container>
     </Box>

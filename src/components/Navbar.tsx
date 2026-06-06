@@ -26,7 +26,7 @@ export function Navbar() {
       borderBottom="1px solid"
       borderColor={scrolled ? "border" : "transparent"}
     >
-      <Container maxW="6xl" px={{ base: 5, md: 8 }}>
+      <Container maxW="6xl" mx="auto" px={{ base: 5, md: 8 }}>
         <Flex h="64px" align="center" justify="space-between">
           <chakra.a
             href="#top"
